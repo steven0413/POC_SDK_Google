@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente de Voz en Tiempo Real</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin: 50px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #status { margin-top: 20px; font-weight: bold; }
+        #transcript { margin-top: 10px; font-style: italic; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Asistente de Voz</h1>
+    <button id="startButton">Iniciar Escucha</button>
+    <div id="status">Presiona "Iniciar Escucha"</div>
+    <div id="transcript"></div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const statusDiv = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
+        let socket;
+        let mediaRecorder;
+
+        startButton.addEventListener('click', async () => {
+            if (startButton.textContent === "Iniciar Escucha") {
+                startListening();
+            } else {
+                stopListening();
+            }
+        });
+
+        async function startListening() {
+            startButton.textContent = "Detener Escucha";
+            statusDiv.textContent = "Conectando al servidor...";
+            transcriptDiv.textContent = "";
+
+            try {
+                // 1. Conexión WebSocket
+                socket = new WebSocket('ws://127.0.0.1:8000/ws/voz');
+                
+                socket.onopen = async () => {
+                    statusDiv.textContent = "Conectado. Habla ahora...";
+                    
+                    // 2. Acceso al micrófono y MediaRecorder
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    
+                    // Asegúrate de que el formato de audio sea compatible
+                    const options = { mimeType: 'audio/webm;codecs=opus' };
+                    mediaRecorder = new MediaRecorder(stream, options);
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.send(event.data);
+                        }
+                    };
+
+                    mediaRecorder.start(100); // Empezar a capturar y enviar datos cada 100ms
+                };
+
+                socket.onmessage = (event) => {
+                    transcriptDiv.textContent = event.data;
+                };
+
+                socket.onclose = () => {
+                    statusDiv.textContent = "Desconectado del servidor.";
+                    startButton.textContent = "Iniciar Escucha";
+                };
+
+                socket.onerror = (error) => {
+                    console.error("Error en el WebSocket:", error);
+                    statusDiv.textContent = "Error de conexión.";
+                };
+
+            } catch (error) {
+                console.error('Error al iniciar la escucha:', error);
+                statusDiv.textContent = "Error: No se pudo acceder al micrófono o la conexión falló.";
+                stopListening();
+            }
+        }
+
+        function stopListening() {
+            if (socket) {
+                socket.close();
+            }
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+    </script>
+</body>
+</html>
