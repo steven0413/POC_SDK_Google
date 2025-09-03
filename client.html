@@ -3,93 +3,521 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cliente de Voz en Tiempo Real</title>
+    <title>Asistente Allianz Colombia</title>
     <style>
-        body { font-family: sans-serif; text-align: center; margin: 50px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-        #status { margin-top: 20px; font-weight: bold; }
-        #transcript { margin-top: 10px; font-style: italic; color: #555; }
+        :root {
+            --allianz-blue: #003087;
+            --allianz-white: #FFFFFF;
+            --allianz-gray: #666666;
+            --allianz-light-blue: #0099D5;
+            --allianz-dark-blue: #001C3D;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f2f6fc 0%, #e0eaf8 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--allianz-white);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            text-align: center;
+            padding: 30px;
+            position: relative;
+        }
+        
+        .allianz-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .allianz-logo {
+            width: 120px;
+            height: 40px;
+            background: var(--allianz-blue);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 20px;
+            border-radius: 4px;
+        }
+        
+        header {
+            margin-bottom: 25px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            color: var(--allianz-dark-blue);
+            margin-bottom: 8px;
+        }
+        
+        p {
+            color: var(--allianz-gray);
+            font-size: 16px;
+        }
+        
+        .status-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+        }
+        
+        .status-indicator.connected {
+            background-color: var(--allianz-light-blue);
+        }
+        
+        .status-indicator.listening {
+            background-color: var(--allianz-light-blue);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-indicator.processing {
+            background-color: var(--allianz-blue);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        #statusText {
+            color: var(--allianz-gray);
+            font-size: 14px;
+        }
+        
+        .main-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--allianz-blue);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 25px;
+            box-shadow: 0 4px 12px rgba(0, 48, 135, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .main-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 48, 135, 0.4);
+        }
+        
+        .main-button.listening {
+            background-color: var(--allianz-light-blue);
+            box-shadow: 0 4px 12px rgba(0, 153, 213, 0.3);
+            animation: pulse-button 1.5s infinite;
+        }
+        
+        .main-button.listening:hover {
+            box-shadow: 0 6px 16px rgba(0, 153, 213, 0.4);
+        }
+        
+        @keyframes pulse-button {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .main-button svg {
+            width: 30px;
+            height: 30px;
+        }
+        
+        .instructions {
+            color: var(--allianz-gray);
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        
+        footer {
+            margin-top: 30px;
+            color: var(--allianz-gray);
+            font-size: 12px;
+        }
+        
+        .audio-container {
+            display: none;
+        }
+        
+        /* Animación de ondas de voz */
+        .voice-waves {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: 160px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .voice-waves.active {
+            opacity: 1;
+        }
+        
+        .wave {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border: 2px solid var(--allianz-light-blue);
+            border-radius: 50%;
+            animation: wave 2s linear infinite;
+        }
+        
+        .wave:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .wave:nth-child(2) {
+            animation-delay: 0.5s;
+        }
+        
+        .wave:nth-child(3) {
+            animation-delay: 1s;
+        }
+        
+        .wave:nth-child(4) {
+            animation-delay: 1.5s;
+        }
+        
+        @keyframes wave {
+            0% {
+                width: 120px;
+                height: 120px;
+                opacity: 1;
+            }
+            100% {
+                width: 160px;
+                height: 160px;
+                opacity: 0;
+            }
+        }
+        
+        /* Animación de barras de sonido */
+        .sound-bars {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+            margin: 20px 0;
+        }
+        
+        .sound-bars.active {
+            display: flex;
+        }
+        
+        .bar {
+            width: 6px;
+            height: 20px;
+            background-color: var(--allianz-blue);
+            margin: 0 3px;
+            border-radius: 3px;
+            animation: sound-bar 1.5s ease infinite;
+        }
+        
+        .bar:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .bar:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        .bar:nth-child(4) {
+            animation-delay: 0.6s;
+        }
+        
+        .bar:nth-child(5) {
+            animation-delay: 0.8s;
+        }
+        
+        @keyframes sound-bar {
+            0% { height: 5px; }
+            25% { height: 30px; }
+            50% { height: 15px; }
+            75% { height: 25px; }
+            100% { height: 5px; }
+        }
     </style>
 </head>
 <body>
-    <h1>Asistente de Voz</h1>
-    <button id="startButton">Iniciar Escucha</button>
-    <div id="status">Presiona "Iniciar Escucha"</div>
-    <div id="transcript"></div>
+    <div class="container">
+        <div class="allianz-header">
+            <div class="allianz-logo">ALLIANZ</div>
+        </div>
+        
+        <header>
+            <h1>Asistente Virtual Allianz</h1>
+            <p>Especialista en seguros e inversiones</p>
+        </header>
+        
+        <div class="status-container">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">Desconectado</span>
+        </div>
+        
+        <!-- Animación de ondas de voz -->
+        <div class="voice-waves" id="voiceWaves">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+        </div>
+        
+        <button class="main-button" id="mainButton" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 15a3 3 0 1 0 0-6 3 极 0 0 0 0 6z"/>
+                <path fill-rule="evenodd" d="M12 3a7 7 0 0 0-7 7v4a7 7 0 1 0 14 0v-4a7 7 0 0 0-7-7zm0 16a5 5 0 0 1-5-5v-4a5 5 0 1 1 10 0v4a5 5 0 0 1-5 5z" clip-rule="evenodd"/>
+            </svg>
+        </button>
+        
+        <!-- Animación de barras de sonido -->
+        <div class="sound-bars" id="soundBars">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+        
+        <div class="instructions">
+            <p>Haz clic en el botón y habla claramente</p>
+        </div>
+        
+        <div class="audio-container">
+            <audio id="audioPlayer"></audio>
+        </div>
+        
+        <footer>
+            <p>Asistente especializado en productos Allianz Colombia</p>
+        </footer>
+    </div>
 
     <script>
-        const startButton = document.getElementById('startButton');
-        const statusDiv = document.getElementById('status');
-        const transcriptDiv = document.getElementById('transcript');
-        let socket;
-        let mediaRecorder;
-
-        startButton.addEventListener('click', async () => {
-            if (startButton.textContent === "Iniciar Escucha") {
-                startListening();
-            } else {
-                stopListening();
-            }
-        });
-
-        async function startListening() {
-            startButton.textContent = "Detener Escucha";
-            statusDiv.textContent = "Conectando al servidor...";
-            transcriptDiv.textContent = "";
-
-            try {
-                // 1. Conexión WebSocket
-                socket = new WebSocket('ws://127.0.0.1:8000/ws/voz');
+        document.addEventListener('DOMContentLoaded', function() {
+            const mainButton = document.getElementById('mainButton');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const voiceWaves = document.getElementById('voiceWaves');
+            const soundBars = document.getElementById('soundBars');
+            
+            let ws;
+            let mediaRecorder;
+            let audioChunks = [];
+            let isRecording = false;
+            let clientId = '';
+            
+            function connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
                 
-                socket.onopen = async () => {
-                    statusDiv.textContent = "Conectado. Habla ahora...";
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    updateStatus('connected', 'Conectado');
+                    mainButton.disabled = false;
+                };
+                
+                ws.onclose = function() {
+                    updateStatus('disconnected', 'Desconectado');
+                    mainButton.disabled = true;
                     
-                    // 2. Acceso al micrófono y MediaRecorder
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    setTimeout(connectWebSocket, 3000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('Error de WebSocket:', error);
+                    updateStatus('error', 'Error de conexión');
+                };
+                
+                ws.onmessage = function(event) {
+                    if (typeof event.data === 'string') {
+                        const data = JSON.parse(event.data);
+                        handleServerMessage(data);
+                    }
+                };
+            }
+            
+            function handleServerMessage(data) {
+                switch(data.event) {
+                    case 'connected':
+                        clientId = data.clientId;
+                        break;
+                        
+                    case 'audio_data':
+                        const audioSrc = `data:audio/mp3;base64,${data.data}`;
+                        audioPlayer.src = audioSrc;
+                        
+                        // Mostrar animación de voz
+                        voiceWaves.classList.add('active');
+                        soundBars.classList.add('active');
+                        
+                        audioPlayer.play();
+                        break;
+                        
+                    case 'processing_started':
+                        updateStatus('processing', 'Procesando...');
+                        break;
+                        
+                    case 'processing_completed':
+                        updateStatus('connected', 'Conectado');
+                        break;
+                        
+                    case 'error':
+                        console.error('Error del servidor:', data.message);
+                        showError(data.message);
+                        break;
+                }
+            }
+            
+            function updateStatus(status, text) {
+                statusText.textContent = text;
+                statusIndicator.className = 'status-indicator';
+                
+                if (status === 'connected') {
+                    statusIndicator.classList.add('connected');
+                    mainButton.classList.remove('listening');
+                } else if (status === 'processing') {
+                    statusIndicator.classList.add('processing');
+                    mainButton.classList.remove('listening');
+                } else if (status === 'listening') {
+                    statusIndicator.classList.add('listening');
+                    mainButton.classList.add('listening');
+                }
+            }
+            
+            function showError(message) {
+                alert(`Error: ${message}`);
+            }
+            
+            async function startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            channelCount: 1,
+                            sampleRate: 48000,
+                            sampleSize: 16,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        } 
+                    });
                     
-                    // Asegúrate de que el formato de audio sea compatible
-                    const options = { mimeType: 'audio/webm;codecs=opus' };
-                    mediaRecorder = new MediaRecorder(stream, options);
-
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                    
+                    audioChunks = [];
+                    
                     mediaRecorder.ondataavailable = (event) => {
-                        if (socket.readyState === WebSocket.OPEN) {
-                            socket.send(event.data);
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                            
+                            if (ws.readyState === WebSocket.OPEN) {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    ws.send(reader.result);
+                                };
+                                reader.readAsArrayBuffer(event.data);
+                            }
                         }
                     };
-
-                    mediaRecorder.start(100); // Empezar a capturar y enviar datos cada 100ms
-                };
-
-                socket.onmessage = (event) => {
-                    transcriptDiv.textContent = event.data;
-                };
-
-                socket.onclose = () => {
-                    statusDiv.textContent = "Desconectado del servidor.";
-                    startButton.textContent = "Iniciar Escucha";
-                };
-
-                socket.onerror = (error) => {
-                    console.error("Error en el WebSocket:", error);
-                    statusDiv.textContent = "Error de conexión.";
-                };
-
-            } catch (error) {
-                console.error('Error al iniciar la escucha:', error);
-                statusDiv.textContent = "Error: No se pudo acceder al micrófono o la conexión falló.";
-                stopListening();
+                    
+                    mediaRecorder.start(100);
+                    isRecording = true;
+                    updateStatus('listening', 'Escuchando...');
+                    
+                    ws.send(JSON.stringify({ event: 'start_recording' }));
+                    
+                } catch (error) {
+                    console.error('Error al acceder al micrófono:', error);
+                    showError('No se pudo acceder al micrófono. Asegúrate de permitir el acceso.');
+                }
             }
-        }
-
-        function stopListening() {
-            if (socket) {
-                socket.close();
+            
+            function stopRecording() {
+                if (mediaRecorder && isRecording) {
+                    mediaRecorder.stop();
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    isRecording = false;
+                    updateStatus('processing', 'Procesando...');
+                    
+                    ws.send(JSON.stringify({ event: 'stop_recording' }));
+                }
             }
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            
+            function toggleRecording() {
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
             }
-        }
+            
+            // Evento cuando el audio termina de reproducirse
+            audioPlayer.addEventListener('ended', function() {
+                // Ocultar animaciones de voz
+                voiceWaves.classList.remove('active');
+                soundBars.classList.remove('active');
+            });
+            
+            // Evento cuando hay un error en la reproducción
+            audioPlayer.addEventListener('error', function() {
+                // Ocultar animaciones de voz
+                voiceWaves.classList.remove('active');
+                soundBars.classList.remove('active');
+            });
+            
+            mainButton.addEventListener('click', toggleRecording);
+            
+            // Reproducir audio automáticamente cuando esté listo
+            audioPlayer.addEventListener('canplay', function() {
+                this.play().catch(e => console.log('Error al reproducir audio:', e));
+            });
+            
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>
