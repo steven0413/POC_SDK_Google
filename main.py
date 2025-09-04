@@ -7,34 +7,35 @@ import { SpeechClient } from "@google-cloud/speech";
 import { TextToSpeechClient } from "@google-cloud/text-to-speech";
 import { VertexAI } from "@google-cloud/vertexai";
 
+// Configuración de variables de entorno
 dotenv.config();
 
-/** CONFIG */
+/** CONFIGURACIÓN PRINCIPAL*/
 const PORT = Number(process.env.PORT || 3000);
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "prj-botlabs-dev";
 const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 const VERTEX_MODEL = process.env.VERTEX_MODEL || "gemini-1.5-flash";
-const MAX_CONVERSATION_HISTORY = 6;
+const MAX_CONVERSATION_HISTORY = 6; // Límite de historial de conversación
 
-/** SERVER + STATIC */
+/** SERVIDOR WEB Y WEBSOCKET */
 const app = express();
 const server = createServer(app);
 app.use(express.static(path.join(process.cwd(), "public")));
 
 const wss = new WebSocketServer({ server });
 
-/** GOOGLE CLIENTS */
-const speechClient = new SpeechClient();
-const ttsClient = new TextToSpeechClient();
+/** CLIENTES DE GOOGLE CLOUD */
+const speechClient = new SpeechClient(); // Speech-to-Text
+const ttsClient = new TextToSpeechClient(); // Text-to-Speech
 const vertex = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 
-// Configuración mejorada del modelo con instrucciones especializadas en Allianz
+// Configuración del modelo generativo de Vertex AI
 const generativeModel = vertex.getGenerativeModel({ 
   model: VERTEX_MODEL,
   generationConfig: {
-    maxOutputTokens: 1024,
-    temperature: 0.7,
-    topP: 0.8,
+    maxOutputTokens: 1024, // Límite de tokens por respuesta
+    temperature: 0.7, // Creatividad de las respuestas (0-1)
+    topP: 0.8, // Diversidad de respuestas (0-1)
   }
 });
 
@@ -45,8 +46,10 @@ interface ClientState {
   clientId: string;
 }
 
+// Mapa para almacenar el estado de todos los clientes conectados
 const clientStates = new Map<WebSocket, ClientState>();
 
+// Función para generar IDs únicos de clientes
 const generateClientId = (): string => {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 };
@@ -102,10 +105,12 @@ function calculateSimilarity(str1: string, str2: string): number {
   return matches / parseFloat(longer.length.toString());
 }
 
+// Evento para nuevas conexiones WebSocket
 wss.on("connection", (ws: WebSocket) => {
   const clientId = generateClientId();
   console.log(`🔌 Cliente ${clientId} conectado.`);
   
+  // Estado inicial del cliente
   clientStates.set(ws, {
     recognizeStream: null,
     conversationHistory: [],
@@ -113,12 +118,15 @@ wss.on("connection", (ws: WebSocket) => {
     clientId
   });
 
+  // Notificar al cliente que está conectado
   ws.send(JSON.stringify({ event: 'connected', clientId }));
 
+  // Manejo de mensajes entrantes
   ws.on("message", async (message: Buffer) => {
     const clientState = clientStates.get(ws);
     if (!clientState) return;
     
+    // Mensajes de control (Json)
     if (message.length < 100 && message.toString().startsWith('{')) {
       try {
         const msg = JSON.parse(message.toString());
@@ -126,11 +134,12 @@ wss.on("connection", (ws: WebSocket) => {
         if (msg.event === 'start_recording') {
           console.log(`>> Cliente ${clientId}: Iniciando STT Stream.`);
           
+          // Limpiar stream anterior si existe
           if (clientState.recognizeStream) {
             clientState.recognizeStream.destroy();
           }
 
-          // Configuración mejorada de STT
+          // Configurar y iniciar stream de reconocimiento de voz STT
           clientState.recognizeStream = speechClient.streamingRecognize({
             config: {
               encoding: 'WEBM_OPUS' as const,
@@ -218,12 +227,12 @@ wss.on("connection", (ws: WebSocket) => {
         parts: [{text: transcription}]
       });
       
-      // Limitar historial
+      // Limitar historial para evitar sobrecargas
       if (clientState.conversationHistory.length > MAX_CONVERSATION_HISTORY) {
         clientState.conversationHistory = clientState.conversationHistory.slice(-MAX_CONVERSATION_HISTORY);
       }
       
-      // Notificar que se está procesando
+      // Notificar al cliente que se está procesando
       ws.send(JSON.stringify({ 
         event: 'processing_started',
         timestamp: new Date().toISOString()
@@ -267,6 +276,7 @@ wss.on("connection", (ws: WebSocket) => {
         }
       ];
       
+      // Generar respuesta con Vertex AI
       const result = await generativeModel.generateContent({
         contents: contents,
       });
@@ -276,7 +286,7 @@ wss.on("connection", (ws: WebSocket) => {
       if (responseText) {
         console.log(`>> Cliente ${clientId}: Respuesta - "${responseText}"`);
         
-        // Enviar solo la respuesta de audio, no el texto
+        // Sintetizar voz a partir de la respuesta
         const [ttsResponse] = await ttsClient.synthesizeSpeech({
           input: { text: responseText },
           voice: { 
@@ -292,6 +302,7 @@ wss.on("connection", (ws: WebSocket) => {
         });
         
         if (ttsResponse.audioContent) {
+          // Enviar audio al cliente
           ws.send(JSON.stringify({ 
             event: 'audio_start',
             timestamp: new Date().toISOString()
@@ -311,6 +322,7 @@ wss.on("connection", (ws: WebSocket) => {
         }
       }
     } catch (e: any) {
+      // Manejo de errores en el procesamiento
       console.error(`❌ Error procesando transcripción (cliente ${clientId}):`, e);
       ws.send(JSON.stringify({ 
         event: 'error', 
@@ -318,6 +330,7 @@ wss.on("connection", (ws: WebSocket) => {
         code: 'PROCESSING_ERROR'
       }));
     } finally {
+      // Finalizar procesamiento
       clientState.isProcessing = false;
       ws.send(JSON.stringify({ 
         event: 'processing_completed',
@@ -326,6 +339,7 @@ wss.on("connection", (ws: WebSocket) => {
     }
   };
 
+  // Manejo de desconexiones
   ws.on("close", () => {
     console.log(`>> Cliente ${clientId} desconectado.`);
     const clientState = clientStates.get(ws);
@@ -335,6 +349,7 @@ wss.on("connection", (ws: WebSocket) => {
     clientStates.delete(ws);
   });
 
+  // Manejo de errores en la conexión WebSocket
   ws.on('error', (error) => {
     console.error(`❌ Error WS (cliente ${clientId}):`, error);
     const clientState = clientStates.get(ws);
@@ -345,6 +360,7 @@ wss.on("connection", (ws: WebSocket) => {
   });
 });
 
+// Endpoint de salud para monitoreo
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
@@ -353,6 +369,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Iniciar el servidor
 server.listen(PORT, () => {
   console.log(`✅ Servidor Allianz escuchando en http://localhost:${PORT}`);
 });
