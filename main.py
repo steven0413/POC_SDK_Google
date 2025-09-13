@@ -60,7 +60,12 @@ function detectAllianzProduct(transcription: string): { detected: boolean, possi
     'seguro de auto', 'seguro de vida', 'seguro de hogar', 'seguro de salud',
     'seguro empresarial', 'seguro de accidentes', 'seguro de viaje',
     'inversiones', 'ahorro', 'pensión', 'protección financiera',
-    'allianz assistance', 'allianz care', 'allianz global assistance'
+    'allianz assistance', 'allianz care', 'allianz global assistance, assistencia',
+    'allianz seguros', 'allianz colombia', 'allianz inversiones',
+    'allianz ahorro', 'allianz pensión', 'allianz protección financiera, allianz proteccion financiera',
+    'allianz seguro de auto', 'allianz seguro de vida', 'allianz seguro de hogar',
+    'allianz seguro de salud', 'allianz seguro empresarial', 'allianz seguro de accidentes',
+    'allianz seguro de viaje, alianza'
   ];
   
   const transcriptionLower = transcription.toLowerCase();
